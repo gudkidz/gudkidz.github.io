@@ -63,12 +63,7 @@
       transform: scale(0.91);
     }
 
-    /* Show controls only on genuine touch devices */
-    @media (hover: none) and (pointer: coarse) {
-      #touch-overlay { display: flex; }
-      body { padding-bottom: 158px; }
-      #controls { display: none; }
-    }
+    /* Touch overlay visibility controlled by JS (more reliable than media query in Chrome) */
   </style>
 </head>
 <body>
@@ -1310,6 +1305,14 @@
 
   // ── TOUCH INPUT ────────────────────────────────────────────────────
   (function initTouch() {
+    // Show controls on touch-capable devices (more reliable than CSS media query in Chrome)
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      document.getElementById('touch-overlay').style.display = 'flex';
+      document.body.style.paddingBottom = '158px';
+      const ctrl = document.getElementById('controls');
+      if (ctrl) ctrl.style.display = 'none';
+    }
+
     // Map button id → state.key field
     const btnMap = {
       'btn-steer-left':  'left',
