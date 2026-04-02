@@ -56,6 +56,17 @@
       backdrop-filter: blur(4px);
       transition: background 0.07s, transform 0.07s, border-color 0.07s;
     }
+    #touch-center-zone {
+      display: flex;
+      align-items: flex-end;
+      pointer-events: auto;
+    }
+    .touch-btn-reset {
+      width: 56px;
+      height: 56px;
+      font-size: 20px;
+      opacity: 0.75;
+    }
     .touch-btn small { font-size: 9px; opacity: 0.75; margin-top: 3px; letter-spacing: 0.5px; }
     .touch-btn.pressed {
       background: rgba(255,255,255,0.30);
@@ -84,6 +95,9 @@
     <div id="touch-left-zone">
       <button class="touch-btn" id="btn-steer-left">◀<br><small>LEFT</small></button>
       <button class="touch-btn" id="btn-steer-right">▶<br><small>RIGHT</small></button>
+    </div>
+    <div id="touch-center-zone">
+      <button class="touch-btn touch-btn-reset" id="btn-reset">↺<br><small>RESET</small></button>
     </div>
     <div id="touch-right-zone">
       <button class="touch-btn" id="btn-accel">▲<br><small>GAS</small></button>
@@ -1359,6 +1373,24 @@
         release(keyName, el);
       }, { passive: false });
     });
+
+    // Reset button
+    const btnReset = document.getElementById('btn-reset');
+    if (btnReset) {
+      btnReset.addEventListener('touchstart', e => {
+        e.preventDefault();
+        btnReset.classList.add('pressed');
+        reset();
+      }, { passive: false });
+      btnReset.addEventListener('touchend', e => {
+        e.preventDefault();
+        btnReset.classList.remove('pressed');
+      }, { passive: false });
+      btnReset.addEventListener('touchcancel', e => {
+        e.preventDefault();
+        btnReset.classList.remove('pressed');
+      }, { passive: false });
+    }
 
     // Block scroll/bounce on the game canvas area
     const container = document.getElementById('container');
