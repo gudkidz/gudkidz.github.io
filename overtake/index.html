@@ -136,11 +136,14 @@
 
   const TRACK = {
     length: 2500,
-    width: 260,
-    laneWidth: 80,
-    leftEdge: -130,
-    rightEdge: 130,
+    width: 400,
+    laneWidth: 120,
+    leftEdge: -200,
+    rightEdge: 200,
   };
+
+  const CAR_HALF_WORLD = 20;  // half-width of a car in world units
+  const CAR_HALF_LEN   = 14;  // half-length of a car in world units
 
   const MAX_LAPS = 3;
 
@@ -172,14 +175,14 @@
   }
 
   const otherCars = [
-    { x: -90, y:  500, speed:  80, liveryIdx: 0 },
-    { x: -40, y:  900, speed:  68, liveryIdx: 1 },
-    { x:   0, y: 1200, speed:  95, liveryIdx: 2 },
-    { x:  40, y: 1450, speed: 105, liveryIdx: 3 },
-    { x:  90, y: 1700, speed: 115, liveryIdx: 4 },
-    { x: -70, y: 1950, speed:  90, liveryIdx: 5 },
-    { x:  60, y: 2150, speed:  82, liveryIdx: 6 },
-    { x:   0, y: 2350, speed: 100, liveryIdx: 7 },
+    { x: -150, y:  500, speed:  80, liveryIdx: 0 },
+    { x:  -60, y:  900, speed:  68, liveryIdx: 1 },
+    { x:    0, y: 1200, speed:  95, liveryIdx: 2 },
+    { x:   60, y: 1450, speed: 105, liveryIdx: 3 },
+    { x:  150, y: 1700, speed: 115, liveryIdx: 4 },
+    { x: -110, y: 1950, speed:  90, liveryIdx: 5 },
+    { x:  100, y: 2150, speed:  82, liveryIdx: 6 },
+    { x:  -30, y: 2350, speed: 100, liveryIdx: 7 },
   ];
 
   let lastLap = 0; // tracks lap count for delta computation
@@ -1193,7 +1196,7 @@
     state.speed = Math.max(Math.min(state.speed, 220), 0);
 
     state.x += side * 180 * dt;
-    state.x = Math.max(TRACK.leftEdge + 15, Math.min(TRACK.rightEdge - 15, state.x));
+    state.x = Math.max(TRACK.leftEdge + 20, Math.min(TRACK.rightEdge - 20, state.x));
 
     state.y += state.speed * dt;
 
@@ -1213,7 +1216,7 @@
 
       const dy = Math.abs(((car.y - state.y + TRACK.length/2) % TRACK.length) - TRACK.length/2);
       const dx = Math.abs(car.x - state.x);
-      if (dy < 25 && dx < 30) {
+      if (dy < CAR_HALF_LEN * 2 && dx < CAR_HALF_WORLD * 2) {
         state.speed *= 0.6;
         state.collision = true;
         state.shake = 8;
