@@ -75,6 +75,117 @@
     }
 
     /* Touch overlay visibility controlled by JS (more reliable than media query in Chrome) */
+
+    /* ── Track Selection Screen ─────────────────────────────────────── */
+    #track-select {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: radial-gradient(ellipse at 50% 38%, #0d1528 0%, #04060e 100%);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: Arial, sans-serif;
+    }
+    .ts-header { text-align: center; margin-bottom: 28px; }
+    .ts-title {
+      font-size: clamp(24px, 5vw, 42px);
+      font-weight: 900;
+      letter-spacing: 8px;
+      color: #fff;
+      text-transform: uppercase;
+      text-shadow: 0 0 50px rgba(255,200,50,0.5);
+      margin: 0 0 6px;
+    }
+    .ts-sub {
+      font-size: 11px;
+      letter-spacing: 5px;
+      color: rgba(255,255,255,0.3);
+      text-transform: uppercase;
+    }
+    .ts-cards {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+    .ts-card {
+      width: 255px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      cursor: pointer;
+      transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), border-color 0.18s, box-shadow 0.18s;
+      overflow: hidden;
+      position: relative;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .ts-card:hover {
+      transform: translateY(-10px) scale(1.02);
+      border-color: rgba(255,215,0,0.55);
+      box-shadow: 0 0 50px rgba(255,215,0,0.18), 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .ts-card.selected {
+      border-color: #ffd700;
+      box-shadow: 0 0 60px rgba(255,215,0,0.35), 0 20px 60px rgba(0,0,0,0.6);
+      transform: translateY(-10px) scale(1.02);
+    }
+    .ts-badge {
+      display: none;
+      position: absolute;
+      top: 10px; right: 10px;
+      background: #ffd700;
+      color: #000;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      z-index: 2;
+    }
+    .ts-card.selected .ts-badge { display: block; }
+    .ts-preview { width: 100%; height: 155px; display: block; }
+    .ts-info { padding: 13px 15px 15px; }
+    .ts-track-name {
+      font-size: 13px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin: 0 0 3px;
+    }
+    .ts-track-sub {
+      font-size: 9px;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin: 0 0 11px;
+    }
+    .ts-stats { display: flex; flex-direction: column; gap: 5px; }
+    .ts-stat { display: flex; justify-content: space-between; align-items: center; }
+    .ts-stat-label { font-size: 8px; color: rgba(255,255,255,0.28); letter-spacing: 2px; text-transform: uppercase; }
+    .ts-stat-val { font-size: 11px; color: #eee; font-weight: bold; }
+    .ts-stars-val { color: #ffd700; font-size: 10px; letter-spacing: 1px; }
+    .ts-confirm {
+      padding: 13px 50px;
+      background: linear-gradient(135deg, #ffd700 0%, #ff9500 100%);
+      border: none;
+      border-radius: 50px;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: #000;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: transform 0.12s, box-shadow 0.18s, opacity 0.2s;
+      box-shadow: 0 4px 30px rgba(255,180,0,0.35);
+    }
+    .ts-confirm:not(:disabled):hover { transform: scale(1.06); box-shadow: 0 8px 50px rgba(255,180,0,0.55); }
+    .ts-confirm:not(:disabled):active { transform: scale(0.96); }
+    .ts-confirm:disabled { opacity: 0.28; cursor: default; }
   </style>
 </head>
 <body>
@@ -103,6 +214,43 @@
       <button class="touch-btn" id="btn-accel">▲<br><small>GAS</small></button>
       <button class="touch-btn" id="btn-brake">▼<br><small>BRAKE</small></button>
     </div>
+  </div>
+
+  <!-- Track selection screen -->
+  <div id="track-select">
+    <div class="ts-header">
+      <h2 class="ts-title">Overtake!</h2>
+      <p class="ts-sub">Select Your Circuit</p>
+    </div>
+    <div class="ts-cards">
+      <div class="ts-card" id="card-gp" onclick="selectTrack('gp')">
+        <span class="ts-badge">✓ SELECTED</span>
+        <canvas class="ts-preview" id="preview-gp" width="255" height="155"></canvas>
+        <div class="ts-info">
+          <p class="ts-track-name">Grand Prix Circuit</p>
+          <p class="ts-track-sub">Technical · High Downforce</p>
+          <div class="ts-stats">
+            <div class="ts-stat"><span class="ts-stat-label">Length</span><span class="ts-stat-val">3.337 km</span></div>
+            <div class="ts-stat"><span class="ts-stat-label">Turns</span><span class="ts-stat-val">19</span></div>
+            <div class="ts-stat"><span class="ts-stat-label">Difficulty</span><span class="ts-stat-val ts-stars-val">★★★★★</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="ts-card" id="card-oval" onclick="selectTrack('oval')">
+        <span class="ts-badge">✓ SELECTED</span>
+        <canvas class="ts-preview" id="preview-oval" width="255" height="155"></canvas>
+        <div class="ts-info">
+          <p class="ts-track-name">Super Speedway Oval</p>
+          <p class="ts-track-sub">High Speed · Draft Racing</p>
+          <div class="ts-stats">
+            <div class="ts-stat"><span class="ts-stat-label">Length</span><span class="ts-stat-val">4.023 km</span></div>
+            <div class="ts-stat"><span class="ts-stat-label">Turns</span><span class="ts-stat-val">4</span></div>
+            <div class="ts-stat"><span class="ts-stat-label">Difficulty</span><span class="ts-stat-val ts-stars-val">★★☆☆☆</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="ts-confirm" id="ts-confirm-btn" disabled onclick="startRace()">Select a Circuit</button>
   </div>
 
   <script>
@@ -159,6 +307,35 @@
     { primary:'#880000', secondary:'#ccaa00', accent:'#ffffff', number:23  }, // United Autosports
   ];
   const PLAYER_LIVERY = { primary:'#00aa44', secondary:'#ffffff', accent:'#ffdd00', number:93 };
+
+  // ── TRACK CONFIGS ─────────────────────────────────────────────────
+  const TRACK_CONFIGS = {
+    gp: {
+      sky:             ['#1a2a4a', '#3a6ea8', '#87ceeb'],
+      grass:           ['#3a6b3a', '#1e3e1e'],
+      surface:         ['#4a4a4a', '#383838'],
+      hasKerbs:        true,
+      hasTrees:        true,
+      hasArmco:        true,
+      hasConcreteWall: false,
+      hasCatchFence:   false,
+      hasGrandstands:  true,
+      hasSponsorBoards:true,
+    },
+    oval: {
+      sky:             ['#1a0800', '#7a3800', '#d06020'],
+      grass:           ['#3a3830', '#262420'],
+      surface:         ['#5c5c5c', '#4c4c4c'],
+      hasKerbs:        false,
+      hasTrees:        false,
+      hasArmco:        false,
+      hasConcreteWall: true,
+      hasCatchFence:   true,
+      hasGrandstands:  true,
+      hasSponsorBoards:false,
+    },
+  };
+  let currentTrackId = 'gp';
 
   // Driver view perspective constants
   const DW = 800, DH = 480;
@@ -617,6 +794,7 @@
 
   function drawDriverView() {
     const driverCX = DW / 2;
+    const tc = TRACK_CONFIGS[currentTrackId];
 
     // Vanishing point stays at screen center; lateral movement handled via world-relative coords
     const vpX = driverCX;
@@ -643,9 +821,9 @@
 
     // --- Sky ---
     const sky = gd.createLinearGradient(0, 0, 0, HORIZON);
-    sky.addColorStop(0,   '#1a2a4a');
-    sky.addColorStop(0.5, '#3a6ea8');
-    sky.addColorStop(1,   '#87ceeb');
+    sky.addColorStop(0,   tc.sky[0]);
+    sky.addColorStop(0.5, tc.sky[1]);
+    sky.addColorStop(1,   tc.sky[2]);
     gd.fillStyle = sky;
     gd.fillRect(0, 0, DW, HORIZON);
 
@@ -676,8 +854,8 @@
 
     // --- Grass verges ---
     const grassGrad = gd.createLinearGradient(0, HORIZON, 0, DH);
-    grassGrad.addColorStop(0, '#3a6b3a');
-    grassGrad.addColorStop(1, '#1e3e1e');
+    grassGrad.addColorStop(0, tc.grass[0]);
+    grassGrad.addColorStop(1, tc.grass[1]);
     gd.fillStyle = grassGrad;
 
     // Left grass
@@ -699,34 +877,36 @@
     gd.fill();
 
     // --- Trees along verges (looping, speed-tied scroll) ---
-    const TREE_SPACING = 180;
-    const treePhase   = state.y % TREE_SPACING; // 0..TREE_SPACING, advances with speed
-    const treeWX      = TRACK.width / 2 + 60;
-    for (let i = 0; i <= Math.ceil(Z_FAR / TREE_SPACING) + 1; i++) {
-      const z = i * TREE_SPACING - treePhase + TREE_SPACING;
-      if (z <= Z_NEAR || z > Z_FAR) continue;
-      [-treeWX, treeWX].forEach(wx => {
-        const p = projectRoad(wx - state.x, z, vpX);
-        if (!p || p.sy > DH + 10) return;
-        const th = p.scale * 180;
-        const tw = p.scale * 40;
-        gd.fillStyle = '#5a3a1a';
-        gd.fillRect(p.sx - tw * 0.1, p.sy - th * 0.4, Math.max(1, tw * 0.2), Math.max(1, th * 0.4));
-        gd.fillStyle = '#1a5a1a';
-        gd.beginPath();
-        gd.arc(p.sx, p.sy - th * 0.55, Math.max(2, tw * 0.55), 0, Math.PI * 2);
-        gd.fill();
-        gd.fillStyle = '#2a7a2a';
-        gd.beginPath();
-        gd.arc(p.sx - tw * 0.2, p.sy - th * 0.65, Math.max(1, tw * 0.38), 0, Math.PI * 2);
-        gd.fill();
-      });
+    if (tc.hasTrees) {
+      const TREE_SPACING = 180;
+      const treePhase   = state.y % TREE_SPACING;
+      const treeWX      = TRACK.width / 2 + 60;
+      for (let i = 0; i <= Math.ceil(Z_FAR / TREE_SPACING) + 1; i++) {
+        const z = i * TREE_SPACING - treePhase + TREE_SPACING;
+        if (z <= Z_NEAR || z > Z_FAR) continue;
+        [-treeWX, treeWX].forEach(wx => {
+          const p = projectRoad(wx - state.x, z, vpX);
+          if (!p || p.sy > DH + 10) return;
+          const th = p.scale * 180;
+          const tw = p.scale * 40;
+          gd.fillStyle = '#5a3a1a';
+          gd.fillRect(p.sx - tw * 0.1, p.sy - th * 0.4, Math.max(1, tw * 0.2), Math.max(1, th * 0.4));
+          gd.fillStyle = '#1a5a1a';
+          gd.beginPath();
+          gd.arc(p.sx, p.sy - th * 0.55, Math.max(2, tw * 0.55), 0, Math.PI * 2);
+          gd.fill();
+          gd.fillStyle = '#2a7a2a';
+          gd.beginPath();
+          gd.arc(p.sx - tw * 0.2, p.sy - th * 0.65, Math.max(1, tw * 0.38), 0, Math.PI * 2);
+          gd.fill();
+        });
+      }
     }
 
     // --- Road surface ---
     const roadGrad = gd.createLinearGradient(0, HORIZON, 0, DH);
-    roadGrad.addColorStop(0, '#4a4a4a');
-    roadGrad.addColorStop(1, '#383838');
+    roadGrad.addColorStop(0, tc.surface[0]);
+    roadGrad.addColorStop(1, tc.surface[1]);
     gd.fillStyle = roadGrad;
     gd.beginPath();
     gd.moveTo(pFarL.sx,  pFarL.sy);
@@ -755,36 +935,37 @@
     }
 
     // --- Kerbs (red/white alternating, scrolling toward viewer) ---
-    const kerbDepth = 8;
-    const stripeZ   = 80;
-    const kerbCount = 14;
-    const kerbPhase = state.y % (2 * stripeZ); // animates scroll
-    for (let i = 0; i < kerbCount; i++) {
-      const zFarK  = Z_NEAR + (kerbCount - i) * stripeZ - kerbPhase;
-      const zNearK = zFarK - stripeZ;
-      if (zFarK <= Z_NEAR || zNearK > Z_FAR) continue;
-      // Use floor-divided stripe index for stable colour as phase shifts
-      const stripeIdx = Math.floor((zFarK + kerbPhase) / stripeZ);
-      gd.fillStyle = stripeIdx % 2 === 0 ? '#dd1111' : '#ffffff';
-      const lf0 = projectRoad(-TRACK.width/2             - state.x, zFarK,  vpX);
-      const lf1 = projectRoad(-TRACK.width/2 - kerbDepth - state.x, zFarK,  vpX);
-      const ln0 = projectRoad(-TRACK.width/2             - state.x, zNearK, vpX);
-      const ln1 = projectRoad(-TRACK.width/2 - kerbDepth - state.x, zNearK, vpX);
-      if (lf0 && lf1 && ln0 && ln1) {
-        gd.beginPath();
-        gd.moveTo(lf0.sx, lf0.sy); gd.lineTo(lf1.sx, lf1.sy);
-        gd.lineTo(ln1.sx, ln1.sy); gd.lineTo(ln0.sx, ln0.sy);
-        gd.closePath(); gd.fill();
-      }
-      const rf0 = projectRoad(TRACK.width/2             - state.x, zFarK,  vpX);
-      const rf1 = projectRoad(TRACK.width/2 + kerbDepth - state.x, zFarK,  vpX);
-      const rn0 = projectRoad(TRACK.width/2             - state.x, zNearK, vpX);
-      const rn1 = projectRoad(TRACK.width/2 + kerbDepth - state.x, zNearK, vpX);
-      if (rf0 && rf1 && rn0 && rn1) {
-        gd.beginPath();
-        gd.moveTo(rf0.sx, rf0.sy); gd.lineTo(rf1.sx, rf1.sy);
-        gd.lineTo(rn1.sx, rn1.sy); gd.lineTo(rn0.sx, rn0.sy);
-        gd.closePath(); gd.fill();
+    if (tc.hasKerbs) {
+      const kerbDepth = 8;
+      const stripeZ   = 80;
+      const kerbCount = 14;
+      const kerbPhase = state.y % (2 * stripeZ);
+      for (let i = 0; i < kerbCount; i++) {
+        const zFarK  = Z_NEAR + (kerbCount - i) * stripeZ - kerbPhase;
+        const zNearK = zFarK - stripeZ;
+        if (zFarK <= Z_NEAR || zNearK > Z_FAR) continue;
+        const stripeIdx = Math.floor((zFarK + kerbPhase) / stripeZ);
+        gd.fillStyle = stripeIdx % 2 === 0 ? '#dd1111' : '#ffffff';
+        const lf0 = projectRoad(-TRACK.width/2             - state.x, zFarK,  vpX);
+        const lf1 = projectRoad(-TRACK.width/2 - kerbDepth - state.x, zFarK,  vpX);
+        const ln0 = projectRoad(-TRACK.width/2             - state.x, zNearK, vpX);
+        const ln1 = projectRoad(-TRACK.width/2 - kerbDepth - state.x, zNearK, vpX);
+        if (lf0 && lf1 && ln0 && ln1) {
+          gd.beginPath();
+          gd.moveTo(lf0.sx, lf0.sy); gd.lineTo(lf1.sx, lf1.sy);
+          gd.lineTo(ln1.sx, ln1.sy); gd.lineTo(ln0.sx, ln0.sy);
+          gd.closePath(); gd.fill();
+        }
+        const rf0 = projectRoad(TRACK.width/2             - state.x, zFarK,  vpX);
+        const rf1 = projectRoad(TRACK.width/2 + kerbDepth - state.x, zFarK,  vpX);
+        const rn0 = projectRoad(TRACK.width/2             - state.x, zNearK, vpX);
+        const rn1 = projectRoad(TRACK.width/2 + kerbDepth - state.x, zNearK, vpX);
+        if (rf0 && rf1 && rn0 && rn1) {
+          gd.beginPath();
+          gd.moveTo(rf0.sx, rf0.sy); gd.lineTo(rf1.sx, rf1.sy);
+          gd.lineTo(rn1.sx, rn1.sy); gd.lineTo(rn0.sx, rn0.sy);
+          gd.closePath(); gd.fill();
+        }
       }
     }
 
@@ -824,6 +1005,91 @@
         z += dashLen + gapLen;
       }
     });
+
+    // --- Track-specific barriers / scenery ---
+    if (tc.hasArmco) {
+      // Armco barriers with sponsor panels on the GP circuit
+      const armcoColors = ['#cc2200','#ff7700','#0044cc','#cc2200','#ff7700','#0044cc'];
+      const PANEL_SPACING = 120;
+      const panelPhase = state.y % PANEL_SPACING;
+      for (let i = 0; i <= Math.ceil(Z_FAR / PANEL_SPACING) + 1; i++) {
+        const z = i * PANEL_SPACING - panelPhase + PANEL_SPACING;
+        if (z <= Z_NEAR || z > Z_FAR) continue;
+        const colorIdx = Math.floor((i + Math.floor(state.y / PANEL_SPACING)) % armcoColors.length);
+        const colA = armcoColors[colorIdx];
+        const zNear2 = z - PANEL_SPACING;
+        [-1, 1].forEach(side => {
+          const xW = (TRACK.width / 2 + 14) * side;
+          const pF = projectRoad(xW - state.x, z,       vpX);
+          const pN = projectRoad(xW - state.x, Math.max(Z_NEAR, zNear2), vpX);
+          if (!pF || !pN) return;
+          // Barrier panel
+          gd.fillStyle = colA;
+          gd.beginPath();
+          gd.moveTo(pF.sx, pF.sy - pF.scale * 14);
+          gd.lineTo(pN.sx, pN.sy - pN.scale * 14);
+          gd.lineTo(pN.sx, pN.sy);
+          gd.lineTo(pF.sx, pF.sy);
+          gd.closePath(); gd.fill();
+          // Armco rail highlight
+          gd.strokeStyle = 'rgba(255,255,255,0.25)';
+          gd.lineWidth = Math.max(0.5, pF.scale * 2);
+          gd.beginPath();
+          gd.moveTo(pF.sx, pF.sy - pF.scale * 7);
+          gd.lineTo(pN.sx, pN.sy - pN.scale * 7);
+          gd.stroke();
+        });
+      }
+    }
+
+    if (tc.hasConcreteWall) {
+      // Oval concrete outer wall
+      const WALL_SPACING = 80;
+      const wallPhase = state.y % WALL_SPACING;
+      for (let i = 0; i <= Math.ceil(Z_FAR / WALL_SPACING) + 1; i++) {
+        const z = i * WALL_SPACING - wallPhase + WALL_SPACING;
+        if (z <= Z_NEAR || z > Z_FAR) continue;
+        const zNear2 = z - WALL_SPACING;
+        const xW = TRACK.width / 2 + 12;
+        const pF = projectRoad(xW - state.x, z, vpX);
+        const pN = projectRoad(xW - state.x, Math.max(Z_NEAR, zNear2), vpX);
+        if (!pF || !pN) return;
+        // Concrete face
+        gd.fillStyle = '#ccc';
+        gd.beginPath();
+        gd.moveTo(pF.sx, pF.sy - pF.scale * 22);
+        gd.lineTo(pN.sx, pN.sy - pN.scale * 22);
+        gd.lineTo(pN.sx, pN.sy);
+        gd.lineTo(pF.sx, pF.sy);
+        gd.closePath(); gd.fill();
+        // SAFER barrier padding stripe
+        gd.fillStyle = 'rgba(0,0,0,0.18)';
+        gd.beginPath();
+        gd.moveTo(pF.sx, pF.sy - pF.scale * 14);
+        gd.lineTo(pN.sx, pN.sy - pN.scale * 14);
+        gd.lineTo(pN.sx, pN.sy - pN.scale * 8);
+        gd.lineTo(pF.sx, pF.sy - pF.scale * 8);
+        gd.closePath(); gd.fill();
+      }
+      if (tc.hasCatchFence) {
+        // Chain-link catch fence above the wall
+        const FENCE_SPACING = 40;
+        const fencePhase = state.y % FENCE_SPACING;
+        for (let i = 0; i <= Math.ceil(Z_FAR / FENCE_SPACING) + 1; i++) {
+          const z = i * FENCE_SPACING - fencePhase + FENCE_SPACING;
+          if (z <= Z_NEAR || z > Z_FAR) continue;
+          const xW = TRACK.width / 2 + 12;
+          const pF = projectRoad(xW - state.x, z, vpX);
+          if (!pF || pF.sy < HORIZON) continue;
+          gd.strokeStyle = 'rgba(180,180,180,0.25)';
+          gd.lineWidth = 0.5;
+          gd.beginPath();
+          gd.moveTo(pF.sx, pF.sy - pF.scale * 22);
+          gd.lineTo(pF.sx, pF.sy - pF.scale * 50);
+          gd.stroke();
+        }
+      }
+    }
 
     // --- Opponent cars (sorted far → near) ---
     const visibleCars = otherCars.map(car => {
@@ -1280,8 +1546,120 @@
     if(e.code==='ArrowRight' || e.code==='KeyD') state.key.right=false;
   });
 
+  // ── TRACK SELECTION ────────────────────────────────────────────────
+  let selectedTrack = null;
+
+  function selectTrack(id) {
+    selectedTrack = id;
+    document.querySelectorAll('.ts-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('card-' + id).classList.add('selected');
+    const btn = document.getElementById('ts-confirm-btn');
+    btn.disabled = false;
+    btn.textContent = id === 'gp' ? 'Race on Grand Prix Circuit ▶' : 'Race on Super Speedway ▶';
+  }
+
+  function startRace() {
+    if (!selectedTrack) return;
+    currentTrackId = selectedTrack;
+    document.getElementById('track-select').style.display = 'none';
+    reset();
+    requestAnimationFrame(loop);
+  }
+
+  function drawPreviewGP(canvas) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.fillStyle = '#0d1528'; ctx.fillRect(0, 0, W, H);
+    // ambient glow
+    const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W*0.7);
+    bg.addColorStop(0, 'rgba(30,60,120,0.5)'); bg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    // GP track outline — simplified F1 layout
+    const pts = [
+      [0.50,0.85],[0.85,0.85],[0.90,0.75],[0.90,0.62],[0.82,0.55],
+      [0.70,0.55],[0.65,0.45],[0.72,0.35],[0.82,0.30],[0.85,0.22],
+      [0.78,0.14],[0.60,0.12],[0.50,0.18],[0.42,0.12],[0.28,0.12],
+      [0.18,0.20],[0.14,0.35],[0.22,0.45],[0.35,0.48],[0.38,0.58],
+      [0.28,0.68],[0.14,0.72],[0.10,0.82],[0.18,0.90],[0.50,0.90],
+    ];
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 7; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    pts.forEach(([x,y],i) => i===0 ? ctx.moveTo(x*W,y*H) : ctx.lineTo(x*W,y*H));
+    ctx.closePath(); ctx.stroke();
+    ctx.strokeStyle = '#bbb'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    pts.forEach(([x,y],i) => i===0 ? ctx.moveTo(x*W,y*H) : ctx.lineTo(x*W,y*H));
+    ctx.closePath(); ctx.stroke();
+    // start/finish line
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0.50*W, 0.82*H); ctx.lineTo(0.50*W, 0.90*H); ctx.stroke();
+    // animated car dot
+    const t = (Date.now() / 3600) % 1;
+    const idx = Math.floor(t * pts.length);
+    const frac = (t * pts.length) % 1;
+    const [ax,ay] = pts[idx]; const [bx,by] = pts[(idx+1)%pts.length];
+    const cx2 = (ax + (bx-ax)*frac)*W, cy2 = (ay + (by-ay)*frac)*H;
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(cx2, cy2, 4, 0, Math.PI*2); ctx.fill();
+    ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(cx2, cy2, 3, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  function drawPreviewOval(canvas) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    ctx.fillStyle = '#0a0806'; ctx.fillRect(0, 0, W, H);
+    const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W*0.7);
+    bg.addColorStop(0, 'rgba(80,40,10,0.4)'); bg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    // Infield
+    ctx.fillStyle = '#1a2210';
+    ctx.beginPath();
+    ctx.ellipse(W*0.5, H*0.5, W*0.36, H*0.32, 0, 0, Math.PI*2); ctx.fill();
+    // Oval track band
+    ctx.strokeStyle = '#666'; ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.ellipse(W*0.5, H*0.5, W*0.42, H*0.37, 0, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = '#999'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(W*0.5, H*0.5, W*0.42, H*0.37, 0, 0, Math.PI*2); ctx.stroke();
+    // Start/finish
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(W*0.50, H*0.13); ctx.lineTo(W*0.50, H*0.22); ctx.stroke();
+    // Inner logo "OVAL"
+    ctx.fillStyle = 'rgba(255,200,50,0.18)';
+    ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('SPEEDWAY', W/2, H/2);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    // animated car dot
+    const t = (Date.now() / 2800) % 1;
+    const angle = t * Math.PI * 2 - Math.PI / 2;
+    const cx2 = W*0.5 + Math.cos(angle) * W*0.42;
+    const cy2 = H*0.5 + Math.sin(angle) * H*0.37;
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(cx2, cy2, 4, 0, Math.PI*2); ctx.fill();
+    ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(cx2, cy2, 3, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  (function initTrackSelect() {
+    const screen = document.getElementById('track-select');
+    screen.style.display = 'flex';
+    const cvGP   = document.getElementById('preview-gp');
+    const cvOval = document.getElementById('preview-oval');
+    // Animate previews
+    function animatePreviews() {
+      drawPreviewGP(cvGP);
+      drawPreviewOval(cvOval);
+      requestAnimationFrame(animatePreviews);
+    }
+    animatePreviews();
+  })();
+
   reset();
-  requestAnimationFrame(loop);
+  // Don't start loop yet — wait for track selection
 
   // ── RESPONSIVE CANVAS SCALING ──────────────────────────────────────
   (function initResponsive() {
