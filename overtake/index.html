@@ -2,18 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1" />
   <title>Overtake!</title>
   <style>
     body { margin: 0; font-family: Arial, sans-serif; background: #222; color:#eee; display: flex; flex-direction: column; align-items:center; }
-    h1 { margin: 16px 0 8px; }
-    #info { width: 100%; max-width: 1220px; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; }
-    #container { display: flex; flex-wrap: nowrap; justify-content: center; align-items: flex-start; gap: 12px; padding: 12px; }
-    canvas { background: #111; border: 2px solid #444; border-radius: 8px; }
+    h1 { margin: 16px 0 8px; font-size: clamp(16px, 4vw, 28px); }
+    #info { width: 100%; max-width: 1220px; display: flex; justify-content: space-between; padding: 0 12px; box-sizing: border-box; }
+    #container { display: flex; flex-wrap: nowrap; justify-content: center; align-items: flex-start; gap: 12px; padding: 12px; touch-action: none; }
+    canvas { background: #111; border: 2px solid #444; border-radius: 8px; display: block; }
     #driver{ width: 800px; height: 480px; }
     #third { width: 400px; height: 480px; }
     #controls { margin-top: 14px; text-align:center; }
-    .label { font-size: 14px; }
+    .label { font-size: clamp(11px, 2.5vw, 14px); }
+
+    /* ── Touch control overlay ─────────────────────────────────────── */
+    #touch-overlay {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 150px;
+      z-index: 200;
+      padding: 10px 20px 16px;
+      box-sizing: border-box;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;        /* overlay itself is pass-through */
+      background: linear-gradient(transparent, rgba(0,0,0,0.55));
+    }
+    #touch-left-zone, #touch-right-zone {
+      display: flex;
+      gap: 10px;
+      pointer-events: auto;
+    }
+    .touch-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      border: 2px solid rgba(255,255,255,0.30);
+      background: rgba(30,30,30,0.70);
+      color: #fff;
+      font-size: 22px;
+      font-weight: bold;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+      transition: background 0.07s, transform 0.07s, border-color 0.07s;
+    }
+    .touch-btn small { font-size: 9px; opacity: 0.75; margin-top: 3px; letter-spacing: 0.5px; }
+    .touch-btn.pressed {
+      background: rgba(255,255,255,0.30);
+      border-color: rgba(255,255,255,0.75);
+      transform: scale(0.91);
+    }
+
+    /* Show controls only on genuine touch devices */
+    @media (hover: none) and (pointer: coarse) {
+      #touch-overlay { display: flex; }
+      body { padding-bottom: 158px; }
+      #controls { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -28,6 +83,18 @@
     <canvas id="third"  width="400" height="480"></canvas>
   </div>
   <div id="controls"><span class="label">Arrows / WASD = Move, R = Reset</span></div>
+
+  <!-- On-screen touch controls (shown only on touch devices via CSS) -->
+  <div id="touch-overlay">
+    <div id="touch-left-zone">
+      <button class="touch-btn" id="btn-steer-left">◀<br><small>LEFT</small></button>
+      <button class="touch-btn" id="btn-steer-right">▶<br><small>RIGHT</small></button>
+    </div>
+    <div id="touch-right-zone">
+      <button class="touch-btn" id="btn-accel">▲<br><small>GAS</small></button>
+      <button class="touch-btn" id="btn-brake">▼<br><small>BRAKE</small></button>
+    </div>
+  </div>
 
   <script>
   const third = document.getElementById('third');
@@ -1203,6 +1270,99 @@
 
   reset();
   requestAnimationFrame(loop);
+
+  // ── RESPONSIVE CANVAS SCALING ──────────────────────────────────────
+  (function initResponsive() {
+    const driverCanvas = document.getElementById('driver');
+    const thirdCanvas  = document.getElementById('third');
+    const container    = document.getElementById('container');
+
+    function resize() {
+      const isPortrait = window.innerWidth < window.innerHeight || window.innerWidth < 900;
+      const pad = 24; // container padding left+right
+
+      if (isPortrait) {
+        container.style.flexDirection = 'column';
+        container.style.alignItems    = 'center';
+        // Scale so 800px driver fits available width
+        const scale = Math.min(1, (window.innerWidth - pad) / 800);
+        driverCanvas.style.width  = Math.round(800 * scale) + 'px';
+        driverCanvas.style.height = Math.round(480 * scale) + 'px';
+        thirdCanvas.style.width   = Math.round(400 * scale) + 'px';
+        thirdCanvas.style.height  = Math.round(480 * scale) + 'px';
+      } else {
+        container.style.flexDirection = 'row';
+        container.style.alignItems    = 'flex-start';
+        // Scale so both canvases (800+400+12 gap) fit side-by-side
+        const naturalW = 800 + 400 + 12;
+        const scale = Math.min(1, (window.innerWidth - pad) / naturalW);
+        driverCanvas.style.width  = Math.round(800 * scale) + 'px';
+        driverCanvas.style.height = Math.round(480 * scale) + 'px';
+        thirdCanvas.style.width   = Math.round(400 * scale) + 'px';
+        thirdCanvas.style.height  = Math.round(480 * scale) + 'px';
+      }
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+    if (screen.orientation) screen.orientation.addEventListener('change', resize);
+  })();
+
+  // ── TOUCH INPUT ────────────────────────────────────────────────────
+  (function initTouch() {
+    // Map button id → state.key field
+    const btnMap = {
+      'btn-steer-left':  'left',
+      'btn-steer-right': 'right',
+      'btn-accel':       'up',
+      'btn-brake':       'down',
+    };
+
+    // touchIdentifier → key name (for multi-touch tracking)
+    const activeIds = new Map();
+
+    function press(key, el) {
+      state.key[key] = true;
+      el.classList.add('pressed');
+    }
+    function release(key, el) {
+      // Only release if no remaining touch IDs still held on this key
+      const stillHeld = Array.from(activeIds.values()).some(k => k === key);
+      if (!stillHeld) {
+        state.key[key] = false;
+        el.classList.remove('pressed');
+      }
+    }
+
+    Object.entries(btnMap).forEach(([btnId, keyName]) => {
+      const el = document.getElementById(btnId);
+      if (!el) return;
+
+      el.addEventListener('touchstart', e => {
+        e.preventDefault();
+        for (const t of e.changedTouches) activeIds.set(t.identifier, keyName);
+        press(keyName, el);
+      }, { passive: false });
+
+      el.addEventListener('touchend', e => {
+        e.preventDefault();
+        for (const t of e.changedTouches) activeIds.delete(t.identifier);
+        release(keyName, el);
+      }, { passive: false });
+
+      el.addEventListener('touchcancel', e => {
+        e.preventDefault();
+        for (const t of e.changedTouches) activeIds.delete(t.identifier);
+        release(keyName, el);
+      }, { passive: false });
+    });
+
+    // Block scroll/bounce on the game canvas area
+    const container = document.getElementById('container');
+    container.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+    container.addEventListener('touchmove',  e => e.preventDefault(), { passive: false });
+  })();
+
   setInterval(()=>{
     document.getElementById('lap').textContent = state.lap;
     document.getElementById('time').textContent = state.timer.toFixed(2);
