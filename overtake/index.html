@@ -300,6 +300,7 @@
     lapDelta: 0,       // delta vs best lap
     noseDip: 0,        // nose dip under braking
     rearSquat: 0,      // rear squat under acceleration
+    slipAngle: 0,      // understeer lateral drift accumulator
   };
 
   const TRACK = {
@@ -412,7 +413,7 @@
     state.countdownTimer = 0;
     state.roll = 0; state.rpmPhase = 0;
     state.prevLap = 0; state.bestLap = null; state.lapDelta = 0;
-    state.noseDip = 0; state.rearSquat = 0;
+    state.noseDip = 0; state.rearSquat = 0; state.slipAngle = 0;
     lastLap = 0;
   }
 
@@ -1021,7 +1022,7 @@
     gd.rotate(state.roll);
     gd.translate(-DW / 2, -DH / 2);
     // Shake + vibration
-    gd.translate(totalShakeX + totalVibX, totalShakeY + totalVibY);
+    gd.translate(totalShakeX + totalVibX + state.sway, totalShakeY + totalVibY);
 
     // --- Sky ---
     const sky = gd.createLinearGradient(0, 0, 0, HORIZON);
@@ -1722,8 +1723,34 @@
     state.timer += dt;
 
     // Body roll toward steering input
-    const rollTarget = (state.key.left ? -0.032 : 0) + (state.key.right ? 0.032 : 0);
+    const speedRatio = state.speed / 220;
+
+    // 1. Body roll — scales 3° at rest → 8° at top speed (0.052–0.14 rad)
+    const rollMax = 0.052 + 0.086 * speedRatio;
+    const rollTarget = (state.key.left ? -rollMax : 0) + (state.key.right ? rollMax : 0);
     state.roll += (rollTarget - state.roll) * 0.1;
+
+    // 2. Speed scrubbing — cornering friction bleeds off speed
+    const scrubLoss = Math.abs(side) * speedRatio * speedRatio * 15 * dt;
+    state.speed = Math.max(0, state.speed - scrubLoss);
+
+    // 3. Lateral drift / understeer — builds above 60% speed, pushes car outward
+    const underSteerRatio = Math.max(0, speedRatio - 0.6) / 0.4;
+    const slipTarget = side * underSteerRatio;
+    state.slipAngle += (slipTarget - state.slipAngle) * 0.04;
+    state.x += state.slipAngle * 35 * dt;
+    state.x = Math.max(TRACK.leftEdge + 20, Math.min(TRACK.rightEdge - 20, state.x));
+
+    // 4. Oversteer / tail snap — sinusoidal rear kick above 80% speed while cornering
+    if (speedRatio > 0.8 && Math.abs(side) > 0) {
+      const snapAmt = Math.sin(state.timer * 4.0) * ((speedRatio - 0.8) / 0.2) * 4 * dt;
+      state.x += snapAmt;
+      state.x = Math.max(TRACK.leftEdge + 20, Math.min(TRACK.rightEdge - 20, state.x));
+    }
+
+    // 5. G-force sway — camera nudges opposite to turn direction at speed
+    const swayTarget = side > 0 ? -speedRatio * 12 : (side < 0 ? speedRatio * 12 : 0);
+    state.sway += (swayTarget - state.sway) * 0.15;
 
     // Nose dip under braking, rear squat under acceleration
     const noseDipTarget  = state.key.down ? 1.0 : 0;
