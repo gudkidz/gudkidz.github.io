@@ -186,6 +186,25 @@
     .ts-confirm:not(:disabled):hover { transform: scale(1.06); box-shadow: 0 8px 50px rgba(255,180,0,0.55); }
     .ts-confirm:not(:disabled):active { transform: scale(0.96); }
     .ts-confirm:disabled { opacity: 0.28; cursor: default; }
+    .ts-card-disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+      filter: grayscale(0.6);
+    }
+    .ts-card-disabled:hover {
+      transform: none;
+      border-color: rgba(255,255,255,0.08);
+      box-shadow: none;
+    }
+    .ts-coming-soon {
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.35);
+      text-transform: uppercase;
+      text-align: center;
+      margin: 4px 0 0;
+      padding-bottom: 4px;
+    }
   </style>
 </head>
 <body>
@@ -223,7 +242,7 @@
       <p class="ts-sub">Select Your Circuit</p>
     </div>
     <div class="ts-cards">
-      <div class="ts-card" id="card-gp" onclick="selectTrack('gp')">
+      <div class="ts-card ts-card-disabled" id="card-gp">
         <span class="ts-badge">✓ SELECTED</span>
         <canvas class="ts-preview" id="preview-gp" width="255" height="155"></canvas>
         <div class="ts-info">
@@ -234,6 +253,7 @@
             <div class="ts-stat"><span class="ts-stat-label">Turns</span><span class="ts-stat-val">19</span></div>
             <div class="ts-stat"><span class="ts-stat-label">Difficulty</span><span class="ts-stat-val ts-stars-val">★★★★★</span></div>
           </div>
+          <p class="ts-coming-soon">COMING SOON</p>
         </div>
       </div>
       <div class="ts-card" id="card-oval" onclick="selectTrack('oval')">
@@ -292,6 +312,7 @@
 
   const CAR_HALF_WORLD = 20;  // half-width of a car in world units
   const CAR_HALF_LEN   = 14;  // half-length of a car in world units
+  const OVAL_CIRCUMFERENCE = 3600; // world units for one oval lap
 
   const MAX_LAPS = 3;
 
@@ -349,6 +370,19 @@
     if (worldZ <= 0) return null;
     const scale = FOCAL / worldZ;
     return { sx: vpX + worldX * scale, sy: HORIZON + CAM_H * scale, scale };
+  }
+
+  function ovalCurvature(t) {
+    // Returns 0–1 at turn centres; turns span ±0.122 of circuit (semicircular ends)
+    let c = 0;
+    for (const tc of [0.25, 0.75]) {
+      let dt = ((t - tc + 1.5) % 1) - 0.5;
+      if (Math.abs(dt) < 0.122) {
+        const phase = (dt / 0.122) * (Math.PI / 2);
+        c += Math.cos(phase) ** 2;
+      }
+    }
+    return c; // 0 on straights, 1.0 at turn apex
   }
 
   const otherCars = [
@@ -431,6 +465,148 @@
     ctx.moveTo(centerX + TRACK.leftEdge, roadTop + 5);
     ctx.lineTo(centerX + TRACK.rightEdge, roadTop + 5);
     ctx.stroke();
+  }
+
+  function drawOvalAerial(ctx) {
+    const W = third.width, H = third.height;
+    const cx = W / 2, cy = H / 2;
+    // Stadium shape: sl = half-length of straights, r = semicircle radius
+    const sl = 100, r = 60;
+    const bw = 20;  // track half-width band in pixels
+
+    // Perimeter and cumulative breakpoints for car position mapping
+    const P  = 4 * sl + 2 * Math.PI * r;
+    const t1 = sl / P;
+    const t2 = t1 + (Math.PI * r) / P;
+    const t3 = t2 + (2 * sl) / P;
+    const t4 = t3 + (Math.PI * r) / P;
+
+    // Draw a stadium (rounded-rectangle) path: long horizontal straights + semicircular ends
+    function drawStadiumPath(sl_, r_) {
+      ctx.beginPath();
+      ctx.moveTo(cx - sl_, cy - r_);
+      ctx.lineTo(cx + sl_, cy - r_);
+      ctx.arc(cx + sl_, cy, r_, -Math.PI / 2, Math.PI / 2);
+      ctx.lineTo(cx - sl_, cy + r_);
+      ctx.arc(cx - sl_, cy, r_, Math.PI / 2, -Math.PI / 2);
+      ctx.closePath();
+    }
+
+    // Map carT ∈ [0,1) to a pixel position + unit tangent on the stadium centre-line
+    // t=0 starts at top-centre moving right (clockwise)
+    function stadiumPoint(carT) {
+      let px, py, tx, ty;
+      if (carT < t1) {
+        // Top-right straight →
+        const u = carT / t1;
+        px = cx + u * sl;  py = cy - r;
+        tx = 1; ty = 0;
+      } else if (carT < t2) {
+        // Right semicircle (clockwise, θ from −π/2 → +π/2)
+        const u = (carT - t1) / (t2 - t1);
+        const theta = -Math.PI / 2 + u * Math.PI;
+        px = (cx + sl) + r * Math.cos(theta);
+        py = cy         + r * Math.sin(theta);
+        tx = -Math.sin(theta); ty = Math.cos(theta);
+      } else if (carT < t3) {
+        // Bottom straight ← (right to left)
+        const u = (carT - t2) / (t3 - t2);
+        px = (cx + sl) - u * 2 * sl;  py = cy + r;
+        tx = -1; ty = 0;
+      } else if (carT < t4) {
+        // Left semicircle (clockwise, θ from +π/2 → +3π/2)
+        const u = (carT - t3) / (t4 - t3);
+        const theta = Math.PI / 2 + u * Math.PI;
+        px = (cx - sl) + r * Math.cos(theta);
+        py = cy         + r * Math.sin(theta);
+        tx = -Math.sin(theta); ty = Math.cos(theta);
+      } else {
+        // Top-left straight →
+        const u = (carT - t4) / (1 - t4);
+        px = (cx - sl) + u * sl;  py = cy - r;
+        tx = 1; ty = 0;
+      }
+      return { px, py, tx, ty };
+    }
+
+    // Background
+    ctx.fillStyle = '#1a1208';
+    ctx.fillRect(0, 0, W, H);
+
+    // Outer wall
+    ctx.fillStyle = '#2e2c28';
+    drawStadiumPath(sl, r + bw + 6);
+    ctx.fill();
+
+    // Track surface
+    ctx.fillStyle = '#595959';
+    drawStadiumPath(sl, r + bw);
+    ctx.fill();
+
+    // Infield
+    ctx.fillStyle = '#1c1a10';
+    drawStadiumPath(sl, r - bw);
+    ctx.fill();
+
+    // Track edge lines
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1.5;
+    drawStadiumPath(sl, r + bw);
+    ctx.stroke();
+    drawStadiumPath(sl, r - bw);
+    ctx.stroke();
+
+    // Centre-line dashes
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 10]);
+    drawStadiumPath(sl, r);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Start/finish gold bar at top-centre (cx, cy−r), perpendicular to straight
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r - bw - 2);
+    ctx.lineTo(cx, cy - r + bw + 2);
+    ctx.stroke();
+
+    // Infield label
+    ctx.fillStyle = 'rgba(255,200,50,0.15)';
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SPEEDWAY', cx, cy);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+
+    // Helper: pixel position + rotation for a car given world coordinates
+    function carPixelPos(carY, lateralX) {
+      const carT = (carY / OVAL_CIRCUMFERENCE) % 1;
+      const { px, py, tx, ty } = stadiumPoint(carT);
+      // Right-normal: rotate tangent 90° clockwise → (ty, −tx)
+      const nx = ty, ny = -tx;
+      const latPx = (lateralX / TRACK.width) * (bw * 2 - 8);
+      return { x: px + nx * latPx, y: py + ny * latPx, rot: Math.atan2(tx, -ty) };
+    }
+
+    // Helper: draw a car rotated to face its travel direction
+    function drawRotatedCar(pos, color) {
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+      ctx.rotate(pos.rot);
+      drawTopDownCar(ctx, 0, 0, color);
+      ctx.restore();
+    }
+
+    // Opponent dots
+    otherCars.forEach(car => {
+      drawRotatedCar(carPixelPos(car.y, car.x), '#e63333');
+    });
+
+    // Player dot
+    drawRotatedCar(carPixelPos(state.y, state.x), '#00dd44');
   }
 
   function drawTopDownCar(ctx, cx, cy, color) {
@@ -796,8 +972,36 @@
     const driverCX = DW / 2;
     const tc = TRACK_CONFIGS[currentTrackId];
 
-    // Vanishing point stays at screen center; lateral movement handled via world-relative coords
+    // Base vanishing point — always screen-center (curve is baked per-segment below)
     const vpX = driverCX;
+
+    // Pre-compute OutRun-style cumulative VP offsets: each road segment looks ahead on the
+    // oval and accumulates lateral shift, so far segments appear to curve into the distance.
+    const NSEGS = 60;
+    const segZ   = [];   // z-depth at each of the NSEGS+1 boundaries
+    const segVpX = [];   // accumulated VP-X at each boundary
+    for (let i = 0; i <= NSEGS; i++) {
+      segZ.push(Z_NEAR + (Z_FAR - Z_NEAR) * i / NSEGS);
+    }
+    segVpX.push(driverCX);
+    for (let i = 0; i < NSEGS; i++) {
+      const dz   = segZ[i + 1] - segZ[i];
+      const zMid = (segZ[i] + segZ[i + 1]) / 2;
+      let dvp = 0;
+      if (currentTrackId === 'oval') {
+        const t = ((state.y + zMid) / OVAL_CIRCUMFERENCE) % 1;
+        dvp = +ovalCurvature(t) * 0.40 * dz;  // positive = bends right (right-hand clockwise oval turns)
+      }
+      segVpX.push(segVpX[i] + dvp);
+    }
+    // Linearly interpolate the accumulated VP offset for any z depth
+    function getVpX(z) {
+      if (z <= Z_NEAR) return segVpX[0];
+      if (z >= Z_FAR)  return segVpX[NSEGS];
+      const frac = (z - Z_NEAR) / (Z_FAR - Z_NEAR) * NSEGS;
+      const idx  = Math.min(NSEGS - 1, Math.floor(frac));
+      return segVpX[idx] + (segVpX[idx + 1] - segVpX[idx]) * (frac - idx);
+    }
 
     // Camera dynamics
     state.shake *= 0.82;
@@ -846,13 +1050,17 @@
     gd.moveTo(0, HORIZON); gd.lineTo(DW, HORIZON);
     gd.stroke();
 
-    // --- Project road edges relative to player's lateral position ---
-    const pNearL = projectRoad(-TRACK.width / 2 - state.x, Z_NEAR, vpX);
-    const pNearR = projectRoad( TRACK.width / 2 - state.x, Z_NEAR, vpX);
-    const pFarL  = projectRoad(-TRACK.width / 2 - state.x, Z_FAR,  vpX);
-    const pFarR  = projectRoad( TRACK.width / 2 - state.x, Z_FAR,  vpX);
+    // Road edge world-X values (relative to player lateral position)
+    const leftEdgeWX  = -TRACK.width / 2 - state.x;
+    const rightEdgeWX =  TRACK.width / 2 - state.x;
 
-    // --- Grass verges ---
+    // Convenience corner points still needed by some elements below
+    const pNearL = projectRoad(leftEdgeWX,  segZ[0],     segVpX[0]);
+    const pNearR = projectRoad(rightEdgeWX, segZ[0],     segVpX[0]);
+    const pFarL  = projectRoad(leftEdgeWX,  segZ[NSEGS], segVpX[NSEGS]);
+    const pFarR  = projectRoad(rightEdgeWX, segZ[NSEGS], segVpX[NSEGS]);
+
+    // --- Grass verges (curved polygon that follows the road bend) ---
     const grassGrad = gd.createLinearGradient(0, HORIZON, 0, DH);
     grassGrad.addColorStop(0, tc.grass[0]);
     grassGrad.addColorStop(1, tc.grass[1]);
@@ -861,8 +1069,10 @@
     // Left grass
     gd.beginPath();
     gd.moveTo(0, HORIZON);
-    gd.lineTo(pFarL.sx, pFarL.sy);
-    gd.lineTo(pNearL.sx, pNearL.sy);
+    for (let i = NSEGS; i >= 0; i--) {
+      const p = projectRoad(leftEdgeWX, segZ[i], segVpX[i]);
+      if (p) gd.lineTo(p.sx, p.sy);
+    }
     gd.lineTo(0, DH);
     gd.closePath();
     gd.fill();
@@ -870,8 +1080,10 @@
     // Right grass
     gd.beginPath();
     gd.moveTo(DW, HORIZON);
-    gd.lineTo(pFarR.sx, pFarR.sy);
-    gd.lineTo(pNearR.sx, pNearR.sy);
+    for (let i = NSEGS; i >= 0; i--) {
+      const p = projectRoad(rightEdgeWX, segZ[i], segVpX[i]);
+      if (p) gd.lineTo(p.sx, p.sy);
+    }
     gd.lineTo(DW, DH);
     gd.closePath();
     gd.fill();
@@ -885,7 +1097,7 @@
         const z = i * TREE_SPACING - treePhase + TREE_SPACING;
         if (z <= Z_NEAR || z > Z_FAR) continue;
         [-treeWX, treeWX].forEach(wx => {
-          const p = projectRoad(wx - state.x, z, vpX);
+          const p = projectRoad(wx - state.x, z, getVpX(z));
           if (!p || p.sy > DH + 10) return;
           const th = p.scale * 180;
           const tw = p.scale * 40;
@@ -903,16 +1115,21 @@
       }
     }
 
-    // --- Road surface ---
+    // --- Road surface (curved polygon — left edge far→near, right edge near→far) ---
     const roadGrad = gd.createLinearGradient(0, HORIZON, 0, DH);
     roadGrad.addColorStop(0, tc.surface[0]);
     roadGrad.addColorStop(1, tc.surface[1]);
     gd.fillStyle = roadGrad;
     gd.beginPath();
-    gd.moveTo(pFarL.sx,  pFarL.sy);
-    gd.lineTo(pFarR.sx,  pFarR.sy);
-    gd.lineTo(pNearR.sx, pNearR.sy);
-    gd.lineTo(pNearL.sx, pNearL.sy);
+    let roadStarted = false;
+    for (let i = NSEGS; i >= 0; i--) {
+      const p = projectRoad(leftEdgeWX, segZ[i], segVpX[i]);
+      if (p) { roadStarted ? gd.lineTo(p.sx, p.sy) : (gd.moveTo(p.sx, p.sy), roadStarted = true); }
+    }
+    for (let i = 0; i <= NSEGS; i++) {
+      const p = projectRoad(rightEdgeWX, segZ[i], segVpX[i]);
+      if (p) gd.lineTo(p.sx, p.sy);
+    }
     gd.closePath();
     gd.fill();
 
@@ -921,7 +1138,7 @@
       const hlAlpha = Math.min(0.28, state.speed / 220 * 0.45);
       const hlWorldOffsets = [-TRACK.width * 0.22, TRACK.width * 0.22];
       hlWorldOffsets.forEach(hlOff => {
-        const hlNear = projectRoad(hlOff - state.x, Z_NEAR * 1.5, vpX);
+        const hlNear = projectRoad(hlOff - state.x, Z_NEAR * 1.5, getVpX(Z_NEAR * 1.5));
         if (!hlNear) return;
         const cone = gd.createRadialGradient(hlNear.sx, hlNear.sy, 0, hlNear.sx, hlNear.sy, 180);
         cone.addColorStop(0, `rgba(255,255,180,${hlAlpha})`);
@@ -946,20 +1163,20 @@
         if (zFarK <= Z_NEAR || zNearK > Z_FAR) continue;
         const stripeIdx = Math.floor((zFarK + kerbPhase) / stripeZ);
         gd.fillStyle = stripeIdx % 2 === 0 ? '#dd1111' : '#ffffff';
-        const lf0 = projectRoad(-TRACK.width/2             - state.x, zFarK,  vpX);
-        const lf1 = projectRoad(-TRACK.width/2 - kerbDepth - state.x, zFarK,  vpX);
-        const ln0 = projectRoad(-TRACK.width/2             - state.x, zNearK, vpX);
-        const ln1 = projectRoad(-TRACK.width/2 - kerbDepth - state.x, zNearK, vpX);
+        const lf0 = projectRoad(-TRACK.width/2             - state.x, zFarK,  getVpX(zFarK));
+        const lf1 = projectRoad(-TRACK.width/2 - kerbDepth - state.x, zFarK,  getVpX(zFarK));
+        const ln0 = projectRoad(-TRACK.width/2             - state.x, zNearK, getVpX(zNearK));
+        const ln1 = projectRoad(-TRACK.width/2 - kerbDepth - state.x, zNearK, getVpX(zNearK));
         if (lf0 && lf1 && ln0 && ln1) {
           gd.beginPath();
           gd.moveTo(lf0.sx, lf0.sy); gd.lineTo(lf1.sx, lf1.sy);
           gd.lineTo(ln1.sx, ln1.sy); gd.lineTo(ln0.sx, ln0.sy);
           gd.closePath(); gd.fill();
         }
-        const rf0 = projectRoad(TRACK.width/2             - state.x, zFarK,  vpX);
-        const rf1 = projectRoad(TRACK.width/2 + kerbDepth - state.x, zFarK,  vpX);
-        const rn0 = projectRoad(TRACK.width/2             - state.x, zNearK, vpX);
-        const rn1 = projectRoad(TRACK.width/2 + kerbDepth - state.x, zNearK, vpX);
+        const rf0 = projectRoad(TRACK.width/2             - state.x, zFarK,  getVpX(zFarK));
+        const rf1 = projectRoad(TRACK.width/2 + kerbDepth - state.x, zFarK,  getVpX(zFarK));
+        const rn0 = projectRoad(TRACK.width/2             - state.x, zNearK, getVpX(zNearK));
+        const rn1 = projectRoad(TRACK.width/2 + kerbDepth - state.x, zNearK, getVpX(zNearK));
         if (rf0 && rf1 && rn0 && rn1) {
           gd.beginPath();
           gd.moveTo(rf0.sx, rf0.sy); gd.lineTo(rf1.sx, rf1.sy);
@@ -969,12 +1186,20 @@
       }
     }
 
-    // --- Solid edge lines ---
+    // --- Solid edge lines (polylines following curve) ---
     gd.strokeStyle = '#ffffff';
     gd.lineWidth = 2;
     gd.beginPath();
-    gd.moveTo(pFarL.sx, pFarL.sy); gd.lineTo(pNearL.sx, pNearL.sy);
-    gd.moveTo(pFarR.sx, pFarR.sy); gd.lineTo(pNearR.sx, pNearR.sy);
+    segZ.forEach((z, i) => {
+      const p = projectRoad(leftEdgeWX, z, segVpX[i]);
+      if (p) i === 0 ? gd.moveTo(p.sx, p.sy) : gd.lineTo(p.sx, p.sy);
+    });
+    gd.stroke();
+    gd.beginPath();
+    segZ.forEach((z, i) => {
+      const p = projectRoad(rightEdgeWX, z, segVpX[i]);
+      if (p) i === 0 ? gd.moveTo(p.sx, p.sy) : gd.lineTo(p.sx, p.sy);
+    });
     gd.stroke();
 
     // --- Animated lane dashes (2 dividers matching top-down 3-lane map) ---
@@ -991,8 +1216,8 @@
         const zS = Math.max(z, Z_NEAR);
         const zE = Math.min(z + dashLen, Z_FAR);
         if (zE > Z_NEAR) {
-          const p0 = projectRoad(lx - state.x, zS, vpX);
-          const p1 = projectRoad(lx - state.x, zE, vpX);
+          const p0 = projectRoad(lx - state.x, zS, getVpX(zS));
+          const p1 = projectRoad(lx - state.x, zE, getVpX(zE));
           if (p0 && p1) {
             gd.strokeStyle = '#ffdd00';
             gd.lineWidth = Math.max(1, p0.scale * 3);
@@ -1020,8 +1245,8 @@
         const zNear2 = z - PANEL_SPACING;
         [-1, 1].forEach(side => {
           const xW = (TRACK.width / 2 + 14) * side;
-          const pF = projectRoad(xW - state.x, z,       vpX);
-          const pN = projectRoad(xW - state.x, Math.max(Z_NEAR, zNear2), vpX);
+          const pF = projectRoad(xW - state.x, z,                        getVpX(z));
+          const pN = projectRoad(xW - state.x, Math.max(Z_NEAR, zNear2), getVpX(Math.max(Z_NEAR, zNear2)));
           if (!pF || !pN) return;
           // Barrier panel
           gd.fillStyle = colA;
@@ -1051,8 +1276,8 @@
         if (z <= Z_NEAR || z > Z_FAR) continue;
         const zNear2 = z - WALL_SPACING;
         const xW = TRACK.width / 2 + 12;
-        const pF = projectRoad(xW - state.x, z, vpX);
-        const pN = projectRoad(xW - state.x, Math.max(Z_NEAR, zNear2), vpX);
+        const pF = projectRoad(xW - state.x, z,                        getVpX(z));
+        const pN = projectRoad(xW - state.x, Math.max(Z_NEAR, zNear2), getVpX(Math.max(Z_NEAR, zNear2)));
         if (!pF || !pN) return;
         // Concrete face
         gd.fillStyle = '#ccc';
@@ -1079,7 +1304,7 @@
           const z = i * FENCE_SPACING - fencePhase + FENCE_SPACING;
           if (z <= Z_NEAR || z > Z_FAR) continue;
           const xW = TRACK.width / 2 + 12;
-          const pF = projectRoad(xW - state.x, z, vpX);
+          const pF = projectRoad(xW - state.x, z, getVpX(z));
           if (!pF || pF.sy < HORIZON) continue;
           gd.strokeStyle = 'rgba(180,180,180,0.25)';
           gd.lineWidth = 0.5;
@@ -1092,9 +1317,10 @@
     }
 
     // --- Opponent cars (sorted far → near) ---
+    const driverLapLen = currentTrackId === 'oval' ? OVAL_CIRCUMFERENCE : TRACK.length;
     const visibleCars = otherCars.map(car => {
-      const rel    = ((car.y - state.y) % TRACK.length + TRACK.length) % TRACK.length;
-      const worldZ = rel < TRACK.length / 2 ? rel : null;
+      const rel    = ((car.y - state.y) % driverLapLen + driverLapLen) % driverLapLen;
+      const worldZ = rel < driverLapLen / 2 ? rel : null;
       if (!worldZ || worldZ < Z_NEAR || worldZ > Z_FAR) return null;
       return { car, worldZ };
     }).filter(Boolean).sort((a, b) => b.worldZ - a.worldZ);
@@ -1102,7 +1328,7 @@
     const spinAngle  = state.y / 12;
     const brakeFactor = state.key.down ? 0.85 : 0;
     visibleCars.forEach(({ car, worldZ }) => {
-      const p = projectRoad(car.x - state.x, worldZ, vpX);
+      const p = projectRoad(car.x - state.x, worldZ, getVpX(worldZ));
       if (!p) return;
       const cw = Math.max(12, p.scale * 110);
       const ch = Math.max(7,  p.scale * 62);
@@ -1435,13 +1661,16 @@
   }
 
   function draw() {
-    // Third-person top-down view
-    g3.clearRect(0,0,third.width,third.height);
-    drawTrack(g3);
+    g3.clearRect(0, 0, third.width, third.height);
 
-    const centerX = third.width / 2;
-    const roadBottomTopDown = third.height - 20;
-    drawTopDownCar(g3, centerX + state.x, roadBottomTopDown - 7, '#00dd44');
+    if (currentTrackId === 'oval') {
+      drawOvalAerial(g3);
+    } else {
+      drawTrack(g3);
+      const centerX = third.width / 2;
+      const roadBottomTopDown = third.height - 20;
+      drawTopDownCar(g3, centerX + state.x, roadBottomTopDown - 7, '#00dd44');
+    }
 
     g3.fillStyle = '#fff';
     g3.font = '16px monospace';
@@ -1467,8 +1696,9 @@
     state.y += state.speed * dt;
 
     // loop track and count laps
-    if(state.y >= TRACK.length) {
-      state.y -= TRACK.length;
+    const lapLength = currentTrackId === 'oval' ? OVAL_CIRCUMFERENCE : TRACK.length;
+    if(state.y >= lapLength) {
+      state.y -= lapLength;
       state.lap += 1;
       if(state.lap >= MAX_LAPS) {
         state.running = false;
@@ -1478,9 +1708,9 @@
     // Update other cars positions relative to track
     otherCars.forEach(car => {
       car.y += (car.speed - state.speed) * dt;
-      car.y = (car.y + TRACK.length) % TRACK.length;
+      car.y = (car.y + lapLength) % lapLength;
 
-      const dy = Math.abs(((car.y - state.y + TRACK.length/2) % TRACK.length) - TRACK.length/2);
+      const dy = Math.abs(((car.y - state.y + lapLength/2) % lapLength) - lapLength/2);
       const dx = Math.abs(car.x - state.x);
       if (dy < CAR_HALF_LEN * 2 && dx < CAR_HALF_WORLD * 2) {
         state.speed *= 0.6;
@@ -1647,6 +1877,8 @@
   (function initTrackSelect() {
     const screen = document.getElementById('track-select');
     screen.style.display = 'flex';
+    // Auto-select oval
+    selectTrack('oval');
     const cvGP   = document.getElementById('preview-gp');
     const cvOval = document.getElementById('preview-oval');
     // Animate previews
